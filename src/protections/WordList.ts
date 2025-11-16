@@ -93,20 +93,56 @@ export class WordList extends Protection {
                     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
                 };
 
-                // Create a mega-regex from all the tiny words.
-                const words = mjolnir.config.protections.wordlist.words
-                    .filter((word) => word.length !== 0)
-                    .map(escapeRegExp);
-                if (words.length === 0) {
+                // Process words: if wrapped in /.../, treat as regex; otherwise escape as literal
+                const patterns: string[] = [];
+                const invalidPatterns: string[] = [];
+
+                for (const word of mjolnir.config.protections.wordlist.words) {
+                    if (word.length === 0) {
+                        continue;
+                    }
+
+                    // Check if the word is a regex pattern (wrapped in forward slashes)
+                    if (word.startsWith("/") && word.endsWith("/") && word.length > 2) {
+                        // Extract the regex pattern (remove the surrounding slashes)
+                        const regexPattern = word.slice(1, -1);
+                        try {
+                            // Validate the regex pattern by creating a test RegExp
+                            new RegExp(regexPattern);
+                            patterns.push(`(${regexPattern})`);
+                        } catch (error) {
+                            invalidPatterns.push(word);
+                            LogService.warn(
+                                "WordList",
+                                `Invalid regex pattern "${word}": ${error instanceof Error ? error.message : String(error)}. Skipping.`,
+                            );
+                        }
+                    } else {
+                        // Treat as literal word and escape special regex characters
+                        patterns.push(escapeRegExp(word));
+                    }
+                }
+
+                if (invalidPatterns.length > 0) {
+                    mjolnir.managementRoomOutput.logMessage(
+                        LogLevel.WARN,
+                        "WordList",
+                        `Found ${invalidPatterns.length} invalid regex pattern(s): ${invalidPatterns.join(", ")}`,
+                    );
+                }
+
+                if (patterns.length === 0) {
                     mjolnir.managementRoomOutput.logMessage(
                         LogLevel.ERROR,
                         "WordList",
-                        `Someone turned on the word list protection without configuring any words. Disabling.`,
+                        `Someone turned on the word list protection without configuring any valid words. Disabling.`,
                     );
                     this.enabled = false;
                     return;
                 }
-                this.badWords = new RegExp(words.join("|"), "i");
+
+                // Combine all patterns with alternation (|) and case-insensitive flag
+                this.badWords = new RegExp(patterns.join("|"), "i");
             }
 
             const match = this.badWords!.exec(message);

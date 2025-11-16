@@ -177,6 +177,17 @@ protections:
     # A list of case-insensitive keywords that the WordList protection will watch for from new users.
     #
     # WordList will ban users who use these words when first joining a room, so take caution when selecting them.
+    #
+    # You can use regular expressions by wrapping patterns in forward slashes (e.g., "/pattern/").
+    # Patterns without slashes are treated as literal words (backward compatible).
+    #
+    # Examples:
+    #   - "spam"           → matches literal word "spam" (case-insensitive)
+    #   - "/spam|scam/"    → matches "spam" OR "scam" using regex
+    #   - "/\\d{3,}/"      → matches 3 or more consecutive digits
+    #   - "/https?:\/\/.*/" → matches URLs starting with http:// or https://
+    #
+    # Note: Invalid regex patterns will be logged as warnings and skipped.
     words:
       - "LoReM"
       - "IpSuM"
